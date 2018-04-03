@@ -58,7 +58,7 @@ There are one or two approximations that are marked #NOT-RAW. In the Encounter.b
 
 
 ######################DICE######################
-class Dice:
+class Dice(object):
     def __init__(self, bonus=0, dice=20, avg=False, twinned=None, role="ability"):
         """
         Class to handle dice and dice rolls
@@ -188,7 +188,7 @@ class Dice:
 
 ######################CREATURE######################
 
-class Creature:
+class Creature(object):
     """
     Creature class handles the creatures and their actions and some interactions with the encounter.
     """
@@ -246,13 +246,14 @@ class Creature:
         """
         try:
             import csv
-            r = csv.reader(open(path, encoding='utf-8'))
-            headers = next(r)
+            #import io
+            #r = csv.reader(io.open(path, encoding='utf-8'))
+            #headers = next(r)
             beastiary = {}
-            for line in r:
-                beast = {h: line[i] for i, h in enumerate(headers) if line[i]}
-                if 'name' in beast:
-                    beastiary[beast['name']] = beast
+            #for line in r:
+                #beast = {h: line[i] for i, h in enumerate(headers) if line[i]}
+                #if 'name' in beast:
+                    #beastiary[beast['name']] = beast
             return beastiary
         except Exception as e:
             warnings.warn('Beastiary error, expected path ' + path + ' error ' + str(e))
@@ -486,7 +487,8 @@ class Creature:
             self.settings['alignment'] = "unassigned mercenaries"  # hahaha!
         self.alignment = self.settings['alignment']
         # internal stuff
-        self.tally = {'damage': 0, 'hits': 0, 'dead': 0, 'misses': 0, 'battles': 0, 'rounds': 0, 'hp': 0,
+        self.tally = {'damage': 0, 'hits': 0, 'dead': 0, 'misses': 0, 'battles':
+              0, 'rounds': 0, 'hp': 0, 'hp2': 0, 'finalhp': [],
                       'healing_spells': 0}
         self.copy_index = 1
         self.condition = 'normal'
@@ -877,14 +879,16 @@ class Creature:
         if self.tally['battles']:
             battles = self.tally['battles']
             return self.name + ": {team=" + self.alignment + "; avg hp=" + str(
-                self.tally['hp'] / battles) + " (from " + str(
+                float(self.tally['hp']) / battles) + "(" + str(
+                math.sqrt(float(self.tally['hp2'])/battles - (float(self.tally['hp']) / battles)**2)) +") (from " + str(
                 self.starting_hp) + "); avg healing spells left=" + str(
                 self.tally['healing_spells'] / battles) + " (from " + str(
                 self.starting_healing_spells) + "); damage done (per battle average)= " + str(
                 self.tally['damage'] / battles) + "; hits/misses (PBA)= " + str(
                 self.tally['hits'] / battles) + "/" + str(
                 self.tally['misses'] / battles) + "; rounds (PBA)=" + str(
-                self.tally['rounds'] / battles) + ";}"
+                self.tally['rounds'] / battles) + "; avg turn position=" + str(
+                self.tally['order'] / battles) + ";}"
         else:
             return self.name + ": UNTESTED IN BATTLE"
 
@@ -917,7 +921,9 @@ class Creature:
             self.conc_fx() #TODO this looks fishy
         self.healing_spells = self.starting_healing_spells
         if hard:
-            self.tally={'damage': 0,'hp': 0, 'hits': 0,'misses': 0,'rounds': 0,'healing_spells': 0,'battles': 0,'dead':0}
+           self.tally={'damage': 0.,'hp': 0., 'hp2': 0., 'finalhp':[], 'hits': 0.,'misses':
+                 0.,'rounds': 0.,'healing_spells': 0.,'battles': 0.,'dead':0.,
+                 'order':0.}
 
 
     def check_advantage(self, opponent):
@@ -1091,7 +1097,7 @@ class Creature:
 
 
 ######################ARENA######################
-class Encounter:
+class Encounter(object):
     """
     In a dimentionless model, move action and the main actions dash, disengage, hide, shove back/aside, tumble and overrun are meaningless.
     weapon attack —default
@@ -1147,6 +1153,7 @@ class Encounter:
 
     def append(self, newbie):
         if not type(newbie) is Creature:
+            print "newbie is not creature, make it one", type(newbie)
             newbie = Creature(newbie)  # Is this safe??
         self.combattants.append(newbie)
         newbie.arena = self
@@ -1256,6 +1263,8 @@ class Encounter:
 
     def roll_for_initiative(self, verbose=0):
         self.combattants = sorted(self.combattants, key=lambda fighter: fighter.initiative.roll())
+        for i in range(len(self.combattants)):
+           self.combattants[i].tally["order"] += i+1
         if verbose:
             verbose.append("Turn order:")
             verbose.append(str([x.name for x in self]))
@@ -1324,18 +1333,20 @@ class Encounter:
         side = self.active.alignment
         team = self.find('allies')
         self.tally['victories'][side] += 1
-        perfect = 1
+        perfect = True
         close = 0
         for x in team:
             if x.hp < x.starting_hp:
-                perfect = 0
+                perfect = False
             if x.hp < 0:
                 close = 1
-        if not perfect:
-            self.tally['perfect'][side] += perfect
+        if perfect:
+            self.tally['perfect'][side] += 1
         self.tally['close'][side] += close
         for character in self:
             character.tally['hp'] += character.hp
+            character.tally['finalhp'].append(character.hp)
+            character.tally['hp2'] += character.hp**2
             character.tally['healing_spells'] += character.healing_spells
         if verbose: self.masterlog.append(str(self))
         # return self or side?

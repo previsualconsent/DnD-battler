@@ -56,7 +56,52 @@ def commoner_brawl(n=5000):
 def dice_variance(d):
         return sum([sum([(i+1-(d2+1)/2)**2 for i in range(d2)])/d2 for d2 in d.dice])
 
+def WizardVsGoblin(attack):
+#'ability_bonuses': {'int': 0, 'cha': 0, 'dex': 0, 'con': 0, 'str': 0, 'wis': 0},
+   wizard = DnD.Creature({
+      'name': 'Wizard',
+      'alignment': 'player',
+      'level': 3,
+      'str': 10,
+      'dex': 16,
+      'con': 10,
+      'int': 16,
+      'wis': 10,
+      'cha': 10,
+      'ac': 13,
+      'hp': 17,
+      'starting_hp': 17,
+      'hd': 6,
+      'proficiency': 2,
+      'attack_parameters': [attack],
+      #'attack_parameters': [],
+      })
+   print attack
+   nbattles = 100000
+   goblin = DnD.Creature("goblin")
+   goblin.alignment = "opponent"
+   e = DnD.Encounter(wizard, goblin)
+   e.go_to_war(nbattles)
+   import numpy as np
+   finalhp = np.array([x if x > 0 else 0 for x in wizard.tally['finalhp']])
+   bins = range(wizard.hp+1)
+   plt.hist(finalhp, bins, alpha=0.5, label=attack[0], normed=1, cumulative=0)
+   values, _ =  np.histogram(finalhp, bins)
+   print values, bins
+   print sum(values/nbattles *bins[1:])
+   #e.battle()
+   #for line in e.masterlog:
+      #print line
+
+
 if __name__ == "__main__":
     # cr_appraisal(DnD.Encounter('my druid','my barbarian','mega_tank', "netsharpshooter"))
-    commoner_brawl()
+    from matplotlib import pyplot as plt
+    WizardVsGoblin(["Dagger", 5, 3, 4])
+    WizardVsGoblin(["Firebolt", 5, 0, 10])
+    plt.legend(loc="upper left")
+    plt.xlabel("Final Wizard HP")
+    plt.ylabel("Percent[%]")
+    plt.show()
+    plt.savefig("attacks.png")
     #print(dice_variance(DnD.Dice(0, [100], role="damage")))
